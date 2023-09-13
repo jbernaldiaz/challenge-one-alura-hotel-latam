@@ -1,33 +1,33 @@
 package views;
 
 import java.awt.EventQueue;
-import javax.swing.JFrame;
-import javax.swing.JPanel;
+import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.SystemColor;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.ImageIcon;
 import java.awt.Color;
-import javax.swing.JTextField;
+
 import com.toedter.calendar.JDateChooser;
+import jdbc.controller.ReservaController;
+import jdbc.modelo.Reservas;
+
 import java.awt.Font;
-import javax.swing.JComboBox;
-import javax.swing.DefaultComboBoxModel;
-import java.text.Format;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.Toolkit;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeEvent;
-import javax.swing.JSeparator;
-import javax.swing.SwingConstants;
+import java.util.Calendar;
+import java.util.Date;
 import javax.swing.border.LineBorder;
+import java.text.SimpleDateFormat;
+
+import static java.lang.Integer.parseInt;
 
 
 @SuppressWarnings("serial")
 public class ReservasView extends JFrame {
+
 
 	private JPanel contentPane;
 	public static JTextField txtValor;
@@ -37,6 +37,8 @@ public class ReservasView extends JFrame {
 	int xMouse, yMouse;
 	private JLabel labelExit;
 	private JLabel labelAtras;
+
+	private ReservaController reservasController;
 
 	/**
 	 * Launch the application.
@@ -58,7 +60,9 @@ public class ReservasView extends JFrame {
 	 * Create the frame.
 	 */
 	public ReservasView() {
-		super("Reserva");
+		//Instanciando la clase ReservasController
+		this.reservasController = new ReservaController();
+
 		setIconImage(Toolkit.getDefaultToolkit().getImage(ReservasView.class.getResource("/imagenes/aH-40px.png")));
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 910, 560);
@@ -262,14 +266,18 @@ public class ReservasView extends JFrame {
 		txtFechaSalida.getCalendarButton().setBounds(267, 1, 21, 31);
 		txtFechaSalida.setBackground(Color.WHITE);
 		txtFechaSalida.setFont(new Font("Roboto", Font.PLAIN, 18));
-		txtFechaSalida.addPropertyChangeListener(new PropertyChangeListener() {
-			public void propertyChange(PropertyChangeEvent evt) {
-				//Activa el evento, después del usuario seleccionar las fechas se debe calcular el valor de la reserva
-			}
-		});
 		txtFechaSalida.setDateFormatString("yyyy-MM-dd");
 		txtFechaSalida.getCalendarButton().setBackground(SystemColor.textHighlight);
 		txtFechaSalida.setBorder(new LineBorder(new Color(255, 255, 255), 0));
+		txtFechaSalida.addPropertyChangeListener(new PropertyChangeListener() {
+			public void propertyChange(PropertyChangeEvent evt) {
+				SimpleDateFormat sd = new SimpleDateFormat("dd/MM/yyyy");
+
+				var fechaOut = (txtFechaSalida.getDateEditor().getDate());
+				var fechain = (txtFechaEntrada.getDateEditor().getDate());
+				calcularValor(fechain, fechaOut);
+			}
+		});
 		panel.add(txtFechaSalida);
 
 		txtValor = new JTextField();
@@ -296,12 +304,13 @@ public class ReservasView extends JFrame {
 		btnsiguiente.addMouseListener(new MouseAdapter() {
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				if (ReservasView.txtFechaEntrada.getDate() != null && ReservasView.txtFechaSalida.getDate() != null) {		
-					RegistroHuesped registro = new RegistroHuesped();
-					registro.setVisible(true);
+				guardarReserva();
+
+				/*if (ReservasView.txtFechaEntrada.getDate() != null && ReservasView.txtFechaSalida.getDate() != null) {
+					guardarReserva();
 				} else {
 					JOptionPane.showMessageDialog(null, "Debes llenar todos los campos.");
-				}
+				}*/
 			}						
 		});
 		btnsiguiente.setLayout(null);
@@ -309,11 +318,74 @@ public class ReservasView extends JFrame {
 		btnsiguiente.setBounds(238, 493, 122, 35);
 		panel.add(btnsiguiente);
 		btnsiguiente.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-
+		btnsiguiente.add(lblSiguiente);
 
 	}
-		
-	//Código que permite mover la ventana por la pantalla según la posición de "x" y "y"	
+
+
+
+	private Long calcularValor(Date fechaIn, Date fechaOut) {
+        SimpleDateFormat sd = new SimpleDateFormat("dd/MM/yyyy");
+        long diferencia = 0;
+        try {
+            if (fechaIn != null && fechaOut != null) {
+                String fechaEntrada = sd.format(fechaIn.getTime());
+                String fechaSalida = sd.format(fechaOut.getTime());
+                String[] fechaI = fechaEntrada.split("/");
+                String[] fechaF = fechaSalida.split("/");
+
+                Calendar cal = Calendar.getInstance();
+
+                cal.set(Calendar.DAY_OF_MONTH, Integer.parseInt(fechaI[0]));
+                cal.set(Calendar.MONTH, Integer.parseInt(fechaI[1]));
+                cal.set(Calendar.YEAR, Integer.parseInt(fechaI[2]));
+                Date firstDate = cal.getTime();
+
+                cal.set(Calendar.DAY_OF_MONTH, Integer.parseInt(fechaF[0]));
+                cal.set(Calendar.MONTH, Integer.parseInt(fechaF[1]));
+                cal.set(Calendar.YEAR, Integer.parseInt(fechaF[2]));
+                Date secondDate = cal.getTime();
+
+                diferencia = secondDate.getTime() - firstDate.getTime();
+				int valorDia = 1000;
+				int dias = (int) (diferencia/1000/60/60/24);
+
+				int valorTotal = valorDia * dias;
+				txtValor.setText(String.valueOf(valorTotal));
+
+            }
+        } catch (NullPointerException e) {
+            throw new RuntimeException(e);
+        }
+
+
+        return diferencia;
+    }
+
+
+
+
+	private void guardarReserva(){
+		SimpleDateFormat sd = new SimpleDateFormat("dd/MM/yyyy");
+
+		Date fechaIn = (txtFechaEntrada.getDate());
+		String fechaEntrada = sd.format(fechaIn.getTime());
+		Date fechaOut= (txtFechaSalida.getDateEditor().getDate());
+		String fechaSalida = sd.format(fechaOut.getTime());
+
+		Reservas nuevaReserva = new Reservas(String.valueOf(fechaEntrada), String.valueOf(fechaSalida), Double.valueOf(txtValor.getText()), txtFormaPago.getSelectedItem().toString());
+
+		reservasController.guardar(nuevaReserva);
+
+		JOptionPane.showMessageDialog(contentPane, "Reserva guradada");
+
+		RegistroHuesped huesped = new RegistroHuesped(nuevaReserva.getId());
+		huesped.setVisible(true);
+		dispose();
+
+	}
+
+	//Código que permite mover la ventana por la pantalla según la posición de "x" y "y"
 	 private void headerMousePressed(java.awt.event.MouseEvent evt) {
 	        xMouse = evt.getX();
 	        yMouse = evt.getY();
